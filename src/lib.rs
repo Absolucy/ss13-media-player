@@ -1,9 +1,4 @@
 // SPDX-License-Identifier: Zlib
-/*
-#[macro_use]
-extern crate log;
-*/
-
 mod error;
 
 use wasm_bindgen::prelude::*;

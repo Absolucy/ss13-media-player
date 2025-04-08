@@ -10,7 +10,7 @@ function topic(type, params) {
 	location.href = url;
 }
 
-// biome-ignore lint/style/noVar: <explanation>
+// biome-ignore lint/style/noVar: this is explicitly a global var
 var player = null;
 
 async function setup() {
@@ -19,7 +19,7 @@ async function setup() {
 	topic("ready");
 }
 
-window.onerror = function(message, source, line, col, error) {
+window.onerror = (message, source, line, col, error) => {
 	topic("error", {
 		"message": message,
 		"source": source,
@@ -30,58 +30,58 @@ window.onerror = function(message, source, line, col, error) {
 	return true;
 };
 
-window.onunhandledrejection = function(error) {
+window.onunhandledrejection = (error) => {
 	let msg = 'UnhandledRejection';
 	if (error.reason) {
-		msg += ': ' + (error.reason.message || error.reason.description || error.reason);
+		msg += `: ${error.reason.message || error.reason.description || error.reason}`;
 		if (error.reason.stack) {
-			error.reason.stack = 'UnhandledRejection: ' + e.reason.stack;
+			error.reason.stack = `UnhandledRejection: ${e.reason.stack}`;
 		}
 	}
 	window.onerror(msg, null, null, null, error.reason);
 };
 
-document.onreadystatechange = function() {
+document.onreadystatechange = () => {
 	if (document.readyState === 'complete') {
 		setup();
 	}
 };
 
-window.set_url = function(url) {
+window.set_url = (url) => {
 	player.set_url(url);
 }
 
-window.set_position = function (x, y) {
+window.set_position = (x, y) => {
 	player.set_position(x, y);
 }
 
-window.set_ref_distance = function (distance) {
+window.set_ref_distance = (distance) => {
 	player.set_ref_distance(distance);
 }
 
-window.set_max_distance = function (distance) {
+window.set_max_distance = (distance) => {
 	player.set_max_distance(distance);
 }
 
-window.set_time = function(time) {
+window.set_time = (time) => {
 	player.set_time(time);
 }
 
-window.set_volume = function(volume) {
+window.set_volume = (volume) => {
 	player.set_volume(volume);
 }
 
-window.play = function(url) {
+window.play = (url) => {
 	if (url) {
 		player.set_url(url);
 	}
 	player.play();
 }
 
-window.pause = function() {
+window.pause = () => {
 	player.pause();
 }
 
-window.stop = function() {
+window.stop = () => {
 	player.stop();
 }
