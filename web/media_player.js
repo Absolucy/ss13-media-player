@@ -111,9 +111,6 @@ window.play = (url, volume) => {
 	}
 	MediaPlayer.player.play().finally(() => {
 		MediaPlayer.update_state();
-		setTimeout(() => {
-			MediaPlayer.player.verify_playing();
-		}, 250);
 	});
 };
 
