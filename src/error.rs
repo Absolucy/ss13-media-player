@@ -2,9 +2,11 @@
 //! this is literally just the console_error_panic_hook crate, but it uses
 //! log::error! instead, so we can have fancy colored output.
 
+use crate::util::ObjectHelperThing;
 use log::error;
 use std::panic::PanicHookInfo;
 use wasm_bindgen::prelude::*;
+use web_sys::js_sys::Object;
 
 #[wasm_bindgen]
 extern "C" {
@@ -42,7 +44,15 @@ fn hook_impl(info: &PanicHookInfo) {
 	msg.push_str("\n\n");
 
 	// Finally, log the panic with `console.error`!
-	error!("{}", msg)
+	error!("{}", msg);
+
+	let error_params = Object::new().set("message", msg.trim());
+	if let Some(location) = info.location() {
+		error_params.set_in_place("source", location.file());
+		error_params.set_in_place("line", location.line());
+		error_params.set_in_place("col", location.column());
+	}
+	crate::topic::byond_topic("error", &error_params);
 }
 
 fn hook(info: &PanicHookInfo) {

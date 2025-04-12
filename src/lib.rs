@@ -1,15 +1,45 @@
 // SPDX-License-Identifier: Zlib
 mod error;
+pub(crate) mod topic;
+pub(crate) mod util;
 
+use crate::util::ObjectHelperThing;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{AudioContext, DistanceModelType, HtmlAudioElement, PannerNode, PanningModelType};
+use web_sys::{
+	AudioContext, DistanceModelType, HtmlAudioElement, PannerNode, PanningModelType, js_sys::Object,
+};
 
 #[wasm_bindgen]
 pub struct SpatialAudioPlayer {
 	context: AudioContext,
 	audio_element: HtmlAudioElement,
 	panner: PannerNode,
+}
+
+impl SpatialAudioPlayer {
+	pub fn serialize_state(&self) -> Object {
+		Object::new()
+			.set("url", self.audio_element.src())
+			.set("muted", self.audio_element.muted())
+			.set("volume", self.audio_element.volume())
+			.set("current_time", self.audio_element.current_time())
+			.set("distance", self.serialize_distance())
+			.set("position", self.serialize_position())
+	}
+
+	fn serialize_distance(&self) -> Object {
+		Object::new()
+			.set("ref_distance", self.panner.ref_distance())
+			.set("max_distance", self.panner.max_distance())
+	}
+
+	fn serialize_position(&self) -> Object {
+		Object::new()
+			.set("x", self.panner.position_x().value())
+			.set("y", self.panner.position_y().value())
+			.set("z", self.panner.position_z().value())
+	}
 }
 
 #[wasm_bindgen]
@@ -44,6 +74,8 @@ impl SpatialAudioPlayer {
 		source.connect_with_audio_node(&panner)?;
 		panner.connect_with_audio_node(&context.destination())?;
 
+		//topic::byond_topic("meow-from-wasm", &JsValue::null());
+
 		Ok(SpatialAudioPlayer {
 			context,
 			audio_element,
@@ -56,9 +88,11 @@ impl SpatialAudioPlayer {
 		self.stop()?;
 
 		self.audio_element.set_src(url);
+		self.audio_element.set_preload("auto");
 		self.audio_element.set_cross_origin(Some("anonymous"));
 		self.audio_element.set_current_time(0.0);
 		self.audio_element.set_muted(false);
+		self.audio_element.load();
 
 		Ok(())
 	}
@@ -103,6 +137,9 @@ impl SpatialAudioPlayer {
 
 	#[wasm_bindgen]
 	pub async fn play(&self) -> Result<(), JsValue> {
+		if self.audio_element.src().trim().is_empty() {
+			return Ok(());
+		}
 		self.audio_element.play().map(JsFuture::from)?.await?;
 		Ok(())
 	}
@@ -124,5 +161,10 @@ impl SpatialAudioPlayer {
 		self.panner.position_z().set_value_at_time(0.0, 0.0)?;
 		self.audio_element.set_src("");
 		Ok(())
+	}
+
+	#[wasm_bindgen]
+	pub fn current_state(&self) -> JsValue {
+		self.serialize_state().into()
 	}
 }
