@@ -1,13 +1,18 @@
 // SPDX-License-Identifier: Zlib
+#[macro_use]
+extern crate log;
+
 mod error;
 pub(crate) mod topic;
 pub(crate) mod util;
 
 use crate::util::ObjectHelperThing;
+use std::{cell::Cell, rc::Rc};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{
-	AudioContext, DistanceModelType, HtmlAudioElement, PannerNode, PanningModelType, js_sys::Object,
+	AudioContext, DistanceModelType, Event, HtmlAudioElement, PannerNode, PanningModelType,
+	js_sys::Object,
 };
 
 #[wasm_bindgen]
@@ -15,6 +20,7 @@ pub struct SpatialAudioPlayer {
 	context: AudioContext,
 	audio_element: HtmlAudioElement,
 	panner: PannerNode,
+	waiting_to_play: Rc<Cell<bool>>,
 }
 
 impl SpatialAudioPlayer {
@@ -49,6 +55,8 @@ impl SpatialAudioPlayer {
 		error::set_once();
 		console_log::init_with_level(log::Level::Debug).expect("failed to init console logger");
 
+		let waiting_to_play = Rc::new(Cell::new(false));
+
 		let context = AudioContext::new()?;
 
 		let audio_element = web_sys::window()
@@ -58,6 +66,30 @@ impl SpatialAudioPlayer {
 			.get_element_by_id("meow")
 			.expect("no audio player???")
 			.dyn_into::<HtmlAudioElement>()?;
+
+		let canplay: Closure<dyn FnMut(_)> = Closure::wrap(Box::new({
+			let waiting_to_play = waiting_to_play.clone();
+			move |event: Event| {
+				debug!("canplay event, waiting_to_play={}", waiting_to_play.get());
+				if waiting_to_play.get() {
+					debug!("we're waiting to play!");
+					let audio = event
+						.current_target()
+						.expect("failed to get current_target")
+						.dyn_into::<HtmlAudioElement>()
+						.expect("current_target was not HtmlAudioElement");
+					if audio.ready_state() >= 3 {
+						debug!("ready_state >= 3, we're playing now");
+						let _ = audio.play().expect("failed to play audio");
+						waiting_to_play.set(false);
+					}
+				}
+			}
+		}) as Box<dyn FnMut(_)>);
+		audio_element
+			.add_event_listener_with_callback("canplay", canplay.as_ref().unchecked_ref())
+			.expect("failed to add canplay event listener");
+		canplay.forget();
 
 		let source = context.create_media_element_source(&audio_element)?;
 
@@ -74,12 +106,11 @@ impl SpatialAudioPlayer {
 		source.connect_with_audio_node(&panner)?;
 		panner.connect_with_audio_node(&context.destination())?;
 
-		//topic::byond_topic("meow-from-wasm", &JsValue::null());
-
 		Ok(SpatialAudioPlayer {
 			context,
 			audio_element,
 			panner,
+			waiting_to_play,
 		})
 	}
 
@@ -92,7 +123,6 @@ impl SpatialAudioPlayer {
 		self.audio_element.set_cross_origin(Some("anonymous"));
 		self.audio_element.set_current_time(0.0);
 		self.audio_element.set_muted(false);
-		self.audio_element.load();
 
 		Ok(())
 	}
@@ -140,7 +170,20 @@ impl SpatialAudioPlayer {
 		if self.audio_element.src().trim().is_empty() {
 			return Ok(());
 		}
-		self.audio_element.play().map(JsFuture::from)?.await?;
+		self.waiting_to_play.set(true);
+		if self.audio_element.ready_state() >= 3 {
+			self.audio_element.play().map(JsFuture::from)?.await?;
+			if !self.audio_element.paused() {
+				self.waiting_to_play.set(false);
+				debug!("audio successfully playing");
+			} else {
+				debug!("audio failed to play (2), loading");
+				self.audio_element.load();
+			}
+		} else {
+			debug!("audio failed to play (1), loading");
+			self.audio_element.load();
+		}
 		Ok(())
 	}
 
@@ -152,6 +195,7 @@ impl SpatialAudioPlayer {
 
 	#[wasm_bindgen]
 	pub fn stop(&self) -> Result<(), JsValue> {
+		self.waiting_to_play.set(false);
 		self.audio_element.pause()?;
 		self.audio_element.set_muted(true);
 		self.audio_element.set_current_time(0.0);
@@ -166,5 +210,33 @@ impl SpatialAudioPlayer {
 	#[wasm_bindgen]
 	pub fn current_state(&self) -> JsValue {
 		self.serialize_state().into()
+	}
+
+	#[wasm_bindgen]
+	pub fn verify_playing(&self) {
+		let waiting_to_play = &self.waiting_to_play;
+		let audio = &self.audio_element;
+		if waiting_to_play.get() && audio.paused() {
+			debug!("check_playing: we should be playing, but aren't");
+			if audio.ready_state() >= 3 {
+				debug!("check_playing: ready state >= 3, trying to play");
+				let _ = audio.play().expect("failed to play audio");
+				if !audio.paused() {
+					debug!("check_playing: successfully played");
+					waiting_to_play.set(false);
+				}
+			} else {
+				debug!("check_playing: not ready, trying to load");
+				audio.load();
+				if audio.ready_state() >= 3 {
+					debug!("check_playing: we loaded, trying to play");
+					let _ = audio.play().expect("failed to play audio");
+					if !audio.paused() {
+						debug!("check_playing: successfully played (2)");
+						waiting_to_play.set(false);
+					}
+				}
+			}
+		}
 	}
 }

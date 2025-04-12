@@ -14,6 +14,7 @@ wasm-bindgen = "0.2"
 web-sys = { version = "0.3", features = [
 	"Window",
 	"Document",
+	"Event",
 	"HtmlAudioElement",
 	"AudioContext",
 	"PannerNode",

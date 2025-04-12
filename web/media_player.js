@@ -110,8 +110,10 @@ window.play = (url, volume) => {
 		MediaPlayer.player.set_volume(volume);
 	}
 	MediaPlayer.player.play().finally(() => {
-		Byond.topic("playing");
 		MediaPlayer.update_state();
+		setTimeout(() => {
+			MediaPlayer.player.verify_playing();
+		}, 250);
 	});
 };
 
