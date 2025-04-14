@@ -2,7 +2,7 @@ import { topic } from "./byond";
 import { Howl, type HowlOptions } from "howler";
 
 declare global {
-	function play(url: string, volume?: number, format?: string);
+	function play(url: string, volume?: number, format?: string | string[]);
 	function stop();
 	function pause();
 	function set_volume(volume: number);
@@ -15,13 +15,14 @@ declare global {
 
 window.audio = null;
 
-window.play = (url: string, volume?: number, format?: string) => {
+window.play = (url: string, volume?: number, format?: string | string[]) => {
 	stop();
 	const options: HowlOptions = {
 		src: [url],
 		volume,
 		html5: true,
 		preload: "metadata",
+		format,
 		onload: () => audio?.play(),
 	};
 	try {
