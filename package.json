@@ -1,0 +1,19 @@
+{
+	"name": "media-player",
+	"private": true,
+	"version": "0.0.0",
+	"source": "src/index.ts",
+	"browserslist": "last 3 Edge major versions",
+	"scripts": {
+		"start": "parcel",
+		"build": "parcel build",
+		"build-dev": "parcel build --no-optimize"
+	},
+	"dependencies": {
+		"howler": "^2.2.4"
+	},
+	"devDependencies": {
+		"@types/howler": "^2.2.12",
+		"parcel": "^2.14.0"
+	}
+}
