@@ -18,13 +18,22 @@ declare global {
 	function set_panning(panning?: number);
 
 	var audio: Howl | null;
-	var cleared: boolean | null;
+	var cleared: boolean;
 }
+
+audio = null;
+cleared = false;
 
 function send_clear() {
 	if (cleared) return;
 	topic("clear");
 	cleared = true;
+}
+
+function full_clear(debug_msg?: string) {
+	if (debug_msg) console.debug("full_clear:", debug_msg);
+	send_clear();
+	audio = null;
 }
 
 function send_playing(url: string) {
@@ -40,23 +49,24 @@ window.play = (
 	y = 0,
 	z = 0,
 ) => {
-	stop();
+	if (audio) stop();
 	const options: HowlOptions = {
 		src: [url],
-		volume,
+		volume: volume ? volume / 100 : 1,
 		html5: true,
-		preload: "metadata",
+		preload: false,
 		format,
 		onload: () => {
+			console.debug("onload");
 			if (!audio) return;
 			audio.pos(x, y, z);
 			audio.play();
 		},
 		onplay: () => send_playing(url),
-		onend: send_clear,
-		onstop: send_clear,
-		onloaderror: send_clear,
-		onplayerror: send_clear,
+		onstop: () => full_clear("onstop"),
+		onend: () => full_clear("onend"),
+		onloaderror: () => full_clear("onloaderror"),
+		onplayerror: () => full_clear("onplayerror"),
 	};
 	try {
 		const audio = (window.audio = new Howl(options));
@@ -70,17 +80,15 @@ window.play = (
 		}
 		audio.load();
 	} catch (error) {
-		send_clear();
-		stop();
 		console.error("Failed to play audio", error);
+		stop();
 	}
 };
 
 window.stop = () => {
 	send_clear();
-	if (!audio) return;
 	try {
-		audio.unload();
+		audio?.unload();
 	} catch (error) {
 		console.error("Failed to stop audio", error);
 	} finally {
