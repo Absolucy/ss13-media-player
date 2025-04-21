@@ -23,6 +23,7 @@ declare global {
 	var start_time: number | null;
 	var offset: number;
 	var cleared: boolean;
+	var sent_playing: boolean;
 }
 
 audio = null;
@@ -30,6 +31,7 @@ load_time = null;
 start_time = null;
 offset = 0;
 cleared = false;
+sent_playing = false;
 
 function is_in_margin_of_error(new_time: number): boolean {
 	if (!start_time || new_time <= 0 || offset <= 0) return false;
@@ -51,6 +53,7 @@ function full_clear(debug_msg?: string) {
 	if (debug_msg) console.debug("full_clear:", debug_msg);
 	send_clear();
 	audio = null;
+	sent_playing = false;
 	load_time = null;
 	start_time = null;
 	offset = 0;
@@ -58,7 +61,10 @@ function full_clear(debug_msg?: string) {
 
 function send_playing(url: string) {
 	cleared = false;
-	topic("playing", { url });
+	if (!sent_playing) {
+		sent_playing = true;
+		topic("playing", { url });
+	}
 }
 
 window.play = (
