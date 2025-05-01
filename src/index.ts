@@ -51,12 +51,13 @@ function send_clear() {
 
 function full_clear(debug_msg?: string) {
 	if (debug_msg) console.debug("full_clear:", debug_msg);
-	send_clear();
+	audio?.unload();
 	audio = null;
 	sent_playing = false;
 	load_time = null;
 	start_time = null;
 	offset = 0;
+	send_clear();
 }
 
 function send_playing(url: string) {
@@ -76,20 +77,20 @@ window.play = (
 	z = 0,
 	balance = 0,
 ) => {
-	if (audio) stop();
+	if (audio) {
+		audio.unload();
+		audio = null;
+		sent_playing = false;
+		load_time = null;
+		start_time = null;
+		offset = 0;
+	}
 	const options: HowlOptions = {
 		src: [url],
 		volume: volume ? volume / 100 : 1,
 		html5: true,
-		preload: false,
+		preload: true,
 		format,
-		onload: () => {
-			console.debug("onload");
-			if (!audio) return;
-			audio.pos(x, y, z);
-			audio.stereo(balance);
-			audio.play();
-		},
 		onplay: () => {
 			start_time = Date.now();
 			send_playing(url);
@@ -100,7 +101,6 @@ window.play = (
 				`--- onplay ---\nstart_time=${start_time}\nload_time=${load_time}\noffset=${offset}`,
 			);
 		},
-		onstop: () => full_clear("onstop"),
 		onend: () => full_clear("onend"),
 		onloaderror: () => full_clear("onloaderror"),
 		onplayerror: () => full_clear("onplayerror"),
@@ -116,7 +116,9 @@ window.play = (
 			}
 		}
 		load_time = Date.now();
-		audio.load();
+		audio.pos(x, y, z);
+		audio.stereo(balance);
+		audio.play();
 	} catch (error) {
 		console.error("Failed to play audio", error);
 		stop();
@@ -124,17 +126,7 @@ window.play = (
 };
 
 window.stop = () => {
-	send_clear();
-	try {
-		load_time = null;
-		start_time = null;
-		offset = 0;
-		audio?.unload();
-	} catch (error) {
-		console.error("Failed to stop audio", error);
-	} finally {
-		audio = null;
-	}
+	full_clear("stop");
 };
 
 window.pause = () => {
