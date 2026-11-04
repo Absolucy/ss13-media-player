@@ -1,5 +1,5 @@
-import { topic } from "./byond";
 import { Howl, type HowlOptions } from "howler";
+import { topic } from "./byond";
 
 declare global {
 	function play(
@@ -10,13 +10,13 @@ declare global {
 		y?: number,
 		z?: number,
 		balance?: number,
-	);
-	function stop();
-	function pause();
-	function set_volume(volume: number);
-	function set_time(seconds: number, force?: boolean);
-	function set_position(x: number, y: number, z: number);
-	function set_panning(panning?: number);
+	): void;
+	function stop(): void;
+	function pause(): void;
+	function set_volume(volume: number): void;
+	function set_time(seconds: number, force?: boolean): void;
+	function set_position(x: number, y: number, z: number): void;
+	function set_panning(panning?: number): void;
 
 	var audio: Howl | null;
 	var load_time: number | null;
@@ -34,11 +34,11 @@ cleared = false;
 sent_playing = false;
 
 function is_in_margin_of_error(new_time: number): boolean {
-	if (!start_time || new_time <= 0 || offset <= 0) return false;
-	const elapsed = (Date.now() - start_time) / 1000;
-	const diff = Math.abs(elapsed - new_time);
+	if (!audio || !start_time || new_time <= 0 || offset <= 0) return false;
+	const position = audio.seek();
+	const diff = Math.abs(position - new_time);
 	console.debug(
-		`load_time = ${load_time}\nstart_time = ${start_time}\nnew_time = ${new_time}\nelapsed = ${elapsed}\noffset = ${offset}\ndiff = ${diff}`,
+		`load_time = ${load_time}\nstart_time = ${start_time}\nnew_time = ${new_time}\nposition = ${position}\noffset = ${offset}\ndiff = ${diff}`,
 	);
 	return diff <= offset;
 }
@@ -87,7 +87,7 @@ window.play = (
 	}
 	const options: HowlOptions = {
 		src: [url],
-		volume: volume ? volume / 100 : 1,
+		volume: volume === undefined ? 1 : volume / 100,
 		html5: true,
 		preload: true,
 		format,
@@ -107,7 +107,6 @@ window.play = (
 	};
 	try {
 		const audio = (window.audio = new Howl(options));
-		//console.log((audio as any)._sounds);
 		const sounds = (audio as any)._sounds;
 		if (sounds) {
 			for (const sound of sounds) {
